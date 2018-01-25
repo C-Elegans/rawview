@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 char* read_file(char* filename){
   FILE* f = fopen(filename, "r");
@@ -10,8 +11,7 @@ char* read_file(char* filename){
   fread(buf,1,size,f);
   return buf;
 }
-
-int field(char** buf, char** key, char** val){
+int field_key(char** buf, char** key){
   char c;
   char* str = *buf;
   *key = str;
@@ -20,7 +20,15 @@ int field(char** buf, char** key, char** val){
   }
   if(!c) goto fail;
   *str = 0;
-  *val = ++str;
+  *buf = ++str;
+  return 1;
+ fail:
+  return 0;
+}
+int field_val(char** buf, char** val){
+  char c;
+  char* str = *buf;
+  *val = str;
   while(((c = *str)) && (c != '\n') && (c == ' ')){
       (*val)++;
       str++;
@@ -45,8 +53,16 @@ int main(int argc, char** argv){
   char* sav = read_file(argv[1]);
   char* buf = sav;
   char *key, *val;
-  while(field(&buf,&key,&val)){
-    printf("%s-%s\n", key, val);
+  while(1){
+    if(field_key(&buf, &key)){
+      if(strcmp(key, "Title") ==0){
+	field_val(&buf,&val);
+	printf("%s - %s\n",key,val);
+      }
+    }
+    else{
+      break;
+    }
   }
   
 
