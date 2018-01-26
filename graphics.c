@@ -1,6 +1,8 @@
 #include "graphics.h"
 #include <gtk/gtk.h>
 gchar* list_data_key = "item_key";
+static int xoffset = 25;
+static int yoffset = 0;
 static GtkWidget *window;
 static GtkWidget *list;
 static GtkWidget *listitem;
@@ -21,24 +23,36 @@ static void get_scale(double* data, size_t items, double* scale, double* offset)
 }
 static void graph_data(GdkPixmap *pixmap, GtkWidget *widget,
 		       int vindex, GdkColor color){
+  /* Clear the screen */
   gdk_draw_rectangle (pixmap,
 		      widget->style->white_gc,
 		      TRUE,
 		      0, 0,
 		      widget->allocation.width,
 		      widget->allocation.height);
+  /* Setup a color */
   gdk_color_alloc(gtk_widget_get_colormap(widget),&color);
   GdkGC* gc = gdk_gc_new(pixmap);
   gdk_gc_set_foreground(gc,&color);
+
+  /* Setup parameters for graphing */
   double* data = rf->variables[vindex].data;
-  int x =0,y=0;
-  int x_prev, y_prev;
   double scale, offset;
   get_scale(data, rf->points, &scale, &offset);
+  double* time = rf->variables[0].data;
+  double t0 = time[0];
+  double tmax = time[rf->points-1];
+  double tdelta = tmax-t0;
+
+  int width = widget->allocation.width-xoffset;
+  int height = widget->allocation.height-yoffset;
+
+  int x =0,y=0;
+  int x_prev, y_prev;
   for(size_t i=0;i<rf->points;i++){
-    x = (int) (((double)i/rf->points) * widget->allocation.width);
+    x = (time[i]-time[0])/tdelta * width + xoffset;
     double val = -scale * data[i] + offset;
-    y = val *widget->allocation.height;
+    y = val * height;
     if(i!=0){
       gdk_draw_line(pixmap, gc, x_prev, y_prev, x,y);
     }
@@ -47,23 +61,6 @@ static void graph_data(GdkPixmap *pixmap, GtkWidget *widget,
   }
   gtk_widget_queue_draw_area(widget,0,0,widget->allocation.width, widget->allocation.height);
 
-}
-static gboolean configure_event( GtkWidget *widget, GdkEventConfigure *event){
-  if (pixmap)
-    g_object_unref(pixmap);
-
-  pixmap = gdk_pixmap_new(widget->window,
-			  widget->allocation.width,
-			  widget->allocation.height,
-			  -1);
-  gdk_draw_rectangle (pixmap,
-		      widget->style->white_gc,
-		      TRUE,
-		      0, 0,
-		      widget->allocation.width,
-		      widget->allocation.height);
-
-  return TRUE;
 }
 static gboolean expose_event( GtkWidget *widget, GdkEventExpose *event){
   gdk_draw_drawable(widget->window,
@@ -93,6 +90,23 @@ static void list_item_selected(GtkWidget *gtklist, gpointer data){
     graph_data(pixmap, drawingarea, item_index, color);
     dlist=dlist->next;
   }
+}
+static gboolean configure_event( GtkWidget *widget, GdkEventConfigure *event){
+  if (pixmap)
+    g_object_unref(pixmap);
+
+  pixmap = gdk_pixmap_new(widget->window,
+			  widget->allocation.width,
+			  widget->allocation.height,
+			  -1);
+  gdk_draw_rectangle (pixmap,
+		      widget->style->white_gc,
+		      TRUE,
+		      0, 0,
+		      widget->allocation.width,
+		      widget->allocation.height);
+  list_item_selected(list, NULL);
+  return TRUE;
 }
 static gboolean delete_event(GtkWidget *widget, GdkEvent *event, gpointer data){
   return FALSE;
@@ -138,7 +152,7 @@ void graphics_run(struct rawfile* _rf){
 		     (GtkSignalFunc) expose_event, NULL);
   gtk_signal_connect(GTK_OBJECT(drawingarea), "configure_event",
 		     (GtkSignalFunc) configure_event, NULL);
-  gtk_box_pack_start(GTK_BOX(box), drawingarea, FALSE, FALSE, 10);
+  gtk_box_pack_start(GTK_BOX(box), drawingarea, TRUE, TRUE, 10);
   gtk_widget_show(drawingarea);
 
   gtk_widget_show(box);
