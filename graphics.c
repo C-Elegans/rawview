@@ -48,17 +48,18 @@ void draw_y_grid(cairo_t* cr, struct variable* var, size_t points,
   get_scale(var->data, points, &scale, &offset);
   double max = 0.5/scale-offset;
   double min = -0.5/scale-offset;
-  double vstep = pow(10,floor(log10(max-min)-0.5));
+  double vstep = pow(10,floor(log10(max-min)-0.5))*2;
 
   cairo_set_source_rgb(cr, 0.5,0.5,0.5);
   cairo_set_line_width(cr,0.5);
   char str[128];
-  for(double v=min;v<max;v+=vstep){
+  for(int i = min/vstep; i<max/vstep;i++){
+    double v = i*vstep;
     float y = (-scale*(v+offset) + 0.5) * height;
     cairo_move_to(cr,xoffset,y);
     cairo_line_to(cr,xoffset+width,y);
     cairo_move_to(cr,0,y);
-    format_si(v,str,sizeof(str),"V");
+    format_si(v,str,sizeof(str),unit_from_vartype(var->type));
     cairo_show_text(cr, str);
   }
   cairo_stroke(cr);

@@ -27,5 +27,6 @@ struct rawfile {
 };
 
 struct rawfile* parse_rawfile(char* filename);
+char* unit_from_vartype(enum vartype);
 
 #endif

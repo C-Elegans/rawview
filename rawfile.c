@@ -7,6 +7,10 @@
 char prefix(char* pre, char* str){
   return strncmp(pre, str, strlen(pre)) == 0;
 }
+static char* lut[3] = {"V", "A", "s"};
+char* unit_from_vartype(enum vartype t){
+  return lut[t];
+}
 
 
 
