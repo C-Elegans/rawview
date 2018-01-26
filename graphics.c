@@ -1,8 +1,9 @@
 #include "graphics.h"
 #include <gtk/gtk.h>
+#include <math.h>
 gchar* list_data_key = "item_key";
 static int xoffset = 25;
-static int yoffset = 0;
+static int yoffset = 20;
 static GtkWidget *window;
 static GtkWidget *list;
 static GtkWidget *listitem;
@@ -21,6 +22,30 @@ static void get_scale(double* data, size_t items, double* scale, double* offset)
   *scale = 0.9/(max-min);
   *offset = (max+min)+ 0.5;
 }
+static void make_time_grid(GdkPixmap *pixmap, GtkWidget *widget,
+			   int width, int height){
+  double* time = rf->variables[0].data;
+  double t0 = time[0];
+  double tmax = time[rf->points-1];
+  double tdelta = tmax-t0;
+  double tstep = pow(10,floor(log10(tdelta)));
+
+  GdkColor color = {0,32767, 32767, 32767};
+  gdk_color_alloc(gtk_widget_get_colormap(widget),&color);
+  GdkGC* gc = gdk_gc_new(pixmap);
+  gdk_gc_set_foreground(gc,&color);
+  
+  gchar str[128];
+  for(double t=t0;t<tmax;t+=tstep){
+    int x = t/tdelta * width + xoffset;
+    gdk_draw_line(pixmap,gc,x,0,x,height);
+
+    /* snprintf(str, sizeof(str), "%fs",t); */
+    /* gdk_draw_text(pixmap,font,gc,x,height+yoffset/2,str,strlen(str)); */
+  }
+
+  gdk_gc_unref(gc);
+}
 static void graph_data(GdkPixmap *pixmap, GtkWidget *widget,
 		       int vindex, GdkColor color){
   /* Clear the screen */
@@ -30,6 +55,9 @@ static void graph_data(GdkPixmap *pixmap, GtkWidget *widget,
 		      0, 0,
 		      widget->allocation.width,
 		      widget->allocation.height);
+  int width = widget->allocation.width-xoffset;
+  int height = widget->allocation.height-yoffset;
+  make_time_grid(pixmap, widget, width, height);
   /* Setup a color */
   gdk_color_alloc(gtk_widget_get_colormap(widget),&color);
   GdkGC* gc = gdk_gc_new(pixmap);
@@ -44,8 +72,6 @@ static void graph_data(GdkPixmap *pixmap, GtkWidget *widget,
   double tmax = time[rf->points-1];
   double tdelta = tmax-t0;
 
-  int width = widget->allocation.width-xoffset;
-  int height = widget->allocation.height-yoffset;
 
   int x =0,y=0;
   int x_prev, y_prev;
@@ -61,6 +87,7 @@ static void graph_data(GdkPixmap *pixmap, GtkWidget *widget,
   }
   gtk_widget_queue_draw_area(widget,0,0,widget->allocation.width, widget->allocation.height);
 
+  gdk_gc_unref(gc);
 }
 static gboolean expose_event( GtkWidget *widget, GdkEventExpose *event){
   gdk_draw_drawable(widget->window,
