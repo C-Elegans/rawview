@@ -4,3 +4,5 @@
 *.o
 rawview
 *.raw
+*.cir
+build/
