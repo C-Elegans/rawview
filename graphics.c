@@ -20,7 +20,9 @@ static void get_scale(double* data, size_t items, double* scale, double* offset)
       min = data[i];
   }
   *scale = 0.9/(max-min);
-  *offset = (max+min)+ 0.5;
+  *offset = -(max+min)/2;
+  printf("max:%f, min:%f\n",max,min);
+  printf("scale: %f, offset: %f\n", *scale, *offset);
 }
 static void make_time_grid(GdkPixmap *pixmap, GtkWidget *widget,
 			   int width, int height){
