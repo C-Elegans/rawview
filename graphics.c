@@ -8,7 +8,7 @@ static GtkWidget *window;
 static GtkWidget *list;
 static GtkWidget *listitem;
 static GtkWidget *drawingarea;
-static GdkPixmap *pixmap = NULL;
+struct variable* currentvar = NULL;
 static struct rawfile* rf = NULL;
 static void get_scale(double* data, size_t items, double* scale, double* offset){
   double min = data[0];
@@ -24,81 +24,79 @@ static void get_scale(double* data, size_t items, double* scale, double* offset)
   printf("max:%f, min:%f\n",max,min);
   printf("scale: %f, offset: %f\n", *scale, *offset);
 }
-static void make_time_grid(GdkPixmap *pixmap, GtkWidget *widget,
-			   int width, int height){
-  double* time = rf->variables[0].data;
-  double t0 = time[0];
-  double tmax = time[rf->points-1];
-  double tdelta = tmax-t0;
-  double tstep = pow(10,floor(log10(tdelta)));
-
-  GdkColor color = {0,32767, 32767, 32767};
-  gdk_color_alloc(gtk_widget_get_colormap(widget),&color);
-  GdkGC* gc = gdk_gc_new(pixmap);
-  gdk_gc_set_foreground(gc,&color);
-  
-  gchar str[128];
-  for(double t=t0;t<tmax;t+=tstep){
-    int x = t/tdelta * width + xoffset;
-    gdk_draw_line(pixmap,gc,x,0,x,height);
-
-    /* snprintf(str, sizeof(str), "%fs",t); */
-    /* gdk_draw_text(pixmap,font,gc,x,height+yoffset/2,str,strlen(str)); */
-  }
-
-  gdk_gc_unref(gc);
-}
-static void graph_data(GdkPixmap *pixmap, GtkWidget *widget,
-		       int vindex, GdkColor color){
-  /* Clear the screen */
-  gdk_draw_rectangle (pixmap,
-		      widget->style->white_gc,
-		      TRUE,
-		      0, 0,
-		      widget->allocation.width,
-		      widget->allocation.height);
-  int width = widget->allocation.width-xoffset;
-  int height = widget->allocation.height-yoffset;
-  make_time_grid(pixmap, widget, width, height);
-  /* Setup a color */
-  gdk_color_alloc(gtk_widget_get_colormap(widget),&color);
-  GdkGC* gc = gdk_gc_new(pixmap);
-  gdk_gc_set_foreground(gc,&color);
-
-  /* Setup parameters for graphing */
-  double* data = rf->variables[vindex].data;
+void draw_y_grid(cairo_t* cr, struct variable* var, size_t points,
+		    int width, int height){
   double scale, offset;
-  get_scale(data, rf->points, &scale, &offset);
-  double* time = rf->variables[0].data;
+  get_scale(var->data, points, &scale, &offset);
+  double max = 0.5/scale;
+  double min = -0.5/scale;
+  cairo_set_source_rgb(cr, 0.5,0.5,0.5);
+  cairo_set_line_width(cr,0.5);
+  char str[128];
+  /* for(double t=t0;t<tmax;t+=tstep){ */
+  /*   float x = floor(t/dt * width + xoffset); */
+  /*   cairo_move_to(cr,x+0.5,0); */
+  /*   cairo_line_to(cr,x+0.5,height); */
+  /*   cairo_move_to(cr,x,height+yoffset/2.0); */
+  /*   snprintf(str,sizeof(str),"%.1es",t); */
+  /*   cairo_show_text(cr,str); */
+  /* } */
+  /* cairo_stroke(cr); */
+  
+}
+void draw_time_grid(cairo_t* cr, double* time, size_t points,
+		    int width, int height){
   double t0 = time[0];
-  double tmax = time[rf->points-1];
-  double tdelta = tmax-t0;
-
-
-  int x =0,y=0;
-  int x_prev, y_prev;
-  for(size_t i=0;i<rf->points;i++){
-    x = (time[i]-time[0])/tdelta * width + xoffset;
-    double val = -scale * data[i] + offset;
-    y = val * height;
-    if(i!=0){
-      gdk_draw_line(pixmap, gc, x_prev, y_prev, x,y);
-    }
-    y_prev = y;
-    x_prev = x;
+  double tmax = time[points-1];
+  double dt = tmax-t0;
+  double tstep = pow(10,floor(log10(dt)));
+  cairo_set_source_rgb(cr, 0.5,0.5,0.5);
+  cairo_set_line_width(cr,0.5);
+  char str[128];
+  for(double t=t0;t<tmax;t+=tstep){
+    float x = floor(t/dt * width + xoffset);
+    cairo_move_to(cr,x+0.5,0);
+    cairo_line_to(cr,x+0.5,height);
+    cairo_move_to(cr,x,height+yoffset/2.0);
+    snprintf(str,sizeof(str),"%.1es",t);
+    cairo_show_text(cr,str);
   }
-  gtk_widget_queue_draw_area(widget,0,0,widget->allocation.width, widget->allocation.height);
-
-  gdk_gc_unref(gc);
+  cairo_stroke(cr);
+  
 }
 static gboolean expose_event( GtkWidget *widget, GdkEventExpose *event){
-  gdk_draw_drawable(widget->window,
-		    widget->style->fg_gc[gtk_widget_get_state (widget)],
-		    pixmap,
-		    event->area.x, event->area.y,
-		    event->area.x, event->area.y,
-		    event->area.width, event->area.height);
+  guint width = widget->allocation.width - xoffset;
+  guint height = widget->allocation.height - yoffset;
+  cairo_t *cr;
+  cr = gdk_cairo_create(gtk_widget_get_window(widget));
+  cairo_set_source_rgb(cr,255,255,255);
+  cairo_paint(cr);
+  if(currentvar){
+    size_t points = rf->points;
+    double* data = currentvar->data;
+    double* time = rf->variables[0].data;
+    double t0 = time[0];
+    double tmax = time[points-1];
+    double dt = tmax-t0;
+    double scale, offset;
+    get_scale(data, points, &scale, &offset);
+    draw_time_grid(cr,time,points,width,height);
+    cairo_set_source_rgb(cr,1,0,0);
+    cairo_set_line_width(cr, 1.5);
+    for(size_t i=0;i<points;i++){
+      int x = (time[i]-time[0])/dt * width + xoffset;
+      int y = (-scale*(data[i] +offset) + 0.5) * height;
+      if(i==0){
+	cairo_move_to(cr,x,y);
+      }
+      else{
+	cairo_line_to(cr,x,y);
+      }
+    }
+    cairo_stroke(cr);
 
+  }
+  cairo_destroy(cr);
   return FALSE;
 }
 static void list_item_selected(GtkWidget *gtklist, gpointer data){
@@ -111,31 +109,10 @@ static void list_item_selected(GtkWidget *gtklist, gpointer data){
     gint item_index;
     item = GTK_OBJECT(dlist->data);
     item_index = GPOINTER_TO_INT(gtk_object_get_data(item,list_data_key));
-    printf("%d\n", item_index);
-    GdkColor color;
-    color.red = 65535;
-    color.green =0;
-    color.blue = 0;
-    graph_data(pixmap, drawingarea, item_index, color);
+    currentvar = &rf->variables[item_index];
     dlist=dlist->next;
   }
-}
-static gboolean configure_event( GtkWidget *widget, GdkEventConfigure *event){
-  if (pixmap)
-    g_object_unref(pixmap);
-
-  pixmap = gdk_pixmap_new(widget->window,
-			  widget->allocation.width,
-			  widget->allocation.height,
-			  -1);
-  gdk_draw_rectangle (pixmap,
-		      widget->style->white_gc,
-		      TRUE,
-		      0, 0,
-		      widget->allocation.width,
-		      widget->allocation.height);
-  list_item_selected(list, NULL);
-  return TRUE;
+  gtk_widget_queue_draw(drawingarea);
 }
 static gboolean delete_event(GtkWidget *widget, GdkEvent *event, gpointer data){
   return FALSE;
@@ -179,8 +156,6 @@ void graphics_run(struct rawfile* _rf){
   gtk_drawing_area_size(GTK_DRAWING_AREA(drawingarea), 500,500);
   gtk_signal_connect(GTK_OBJECT(drawingarea), "expose_event",
 		     (GtkSignalFunc) expose_event, NULL);
-  gtk_signal_connect(GTK_OBJECT(drawingarea), "configure_event",
-		     (GtkSignalFunc) configure_event, NULL);
   gtk_box_pack_start(GTK_BOX(box), drawingarea, TRUE, TRUE, 10);
   gtk_widget_show(drawingarea);
 
