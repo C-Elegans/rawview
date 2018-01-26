@@ -2,8 +2,8 @@
 #include <gtk/gtk.h>
 #include <math.h>
 gchar* list_data_key = "item_key";
-static int xoffset = 25;
-static int yoffset = 20;
+static int xoffset = 40;
+static int yoffset = 25;
 static GtkWidget *window;
 static GtkWidget *list;
 static GtkWidget *listitem;
@@ -24,24 +24,44 @@ static void get_scale(double* data, size_t items, double* scale, double* offset)
   printf("max:%f, min:%f\n",max,min);
   printf("scale: %f, offset: %f\n", *scale, *offset);
 }
+void format_si(double val, char* str, size_t size, char* unittext){
+  char* sign = val<0 ? "-":" ";
+  val = fabs(val);
+  int exp = floor(log10(val));
+  int exp3 = exp-(exp%3);
+  double x3 = val/pow(10,exp3);
+  char exp3_char[2] = {0,0};
+  if(exp3>=-24 && exp3 <=24 && exp3!=0){
+    char lut[] = "yzafpnum kMGTPEZY";
+    exp3_char[0] = lut[(exp3+24)/3];
+  }
+  if(val != 0){
+    snprintf(str,size,"%s%1.3f%s%s", sign, x3, exp3_char, unittext);
+  }
+  else{
+    snprintf(str,size," %1.3f%s",val,unittext);
+  }
+}
 void draw_y_grid(cairo_t* cr, struct variable* var, size_t points,
 		    int width, int height){
   double scale, offset;
   get_scale(var->data, points, &scale, &offset);
-  double max = 0.5/scale;
-  double min = -0.5/scale;
+  double max = 0.5/scale-offset;
+  double min = -0.5/scale-offset;
+  double vstep = pow(10,floor(log10(max-min)-0.5));
+
   cairo_set_source_rgb(cr, 0.5,0.5,0.5);
   cairo_set_line_width(cr,0.5);
   char str[128];
-  /* for(double t=t0;t<tmax;t+=tstep){ */
-  /*   float x = floor(t/dt * width + xoffset); */
-  /*   cairo_move_to(cr,x+0.5,0); */
-  /*   cairo_line_to(cr,x+0.5,height); */
-  /*   cairo_move_to(cr,x,height+yoffset/2.0); */
-  /*   snprintf(str,sizeof(str),"%.1es",t); */
-  /*   cairo_show_text(cr,str); */
-  /* } */
-  /* cairo_stroke(cr); */
+  for(double v=min;v<max;v+=vstep){
+    float y = (-scale*(v+offset) + 0.5) * height;
+    cairo_move_to(cr,xoffset,y);
+    cairo_line_to(cr,xoffset+width,y);
+    cairo_move_to(cr,0,y);
+    format_si(v,str,sizeof(str),"V");
+    cairo_show_text(cr, str);
+  }
+  cairo_stroke(cr);
   
 }
 void draw_time_grid(cairo_t* cr, double* time, size_t points,
@@ -58,7 +78,7 @@ void draw_time_grid(cairo_t* cr, double* time, size_t points,
     cairo_move_to(cr,x+0.5,0);
     cairo_line_to(cr,x+0.5,height);
     cairo_move_to(cr,x,height+yoffset/2.0);
-    snprintf(str,sizeof(str),"%.1es",t);
+    format_si(t,str,sizeof(str),"s");
     cairo_show_text(cr,str);
   }
   cairo_stroke(cr);
@@ -81,6 +101,7 @@ static gboolean expose_event( GtkWidget *widget, GdkEventExpose *event){
     double scale, offset;
     get_scale(data, points, &scale, &offset);
     draw_time_grid(cr,time,points,width,height);
+    draw_y_grid(cr,currentvar,points,width,height);
     cairo_set_source_rgb(cr,1,0,0);
     cairo_set_line_width(cr, 1.5);
     for(size_t i=0;i<points;i++){
