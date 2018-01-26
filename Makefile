@@ -6,7 +6,8 @@ DEPFLAGS = -MT $@ -MMD -MP -MF $(DEPDIR)/$*.Td
 POSTCOMPILE = @mv -f $(DEPDIR)/$*.Td $(DEPDIR)/$*.d && touch $@
 CFLAGS=-g -O0 -DDEBUG -Wall -Werror -Wextra
 CFLAGS+=-Wno-unused-parameter -Wno-unused-variable
-LDFLAGS=
+CFLAGS+=$(shell pkg-config --cflags gtk+-2.0)
+LDFLAGS=$(shell pkg-config --libs gtk+-2.0)
 all: rawview
 
 rawview: $(OBJS)
@@ -19,7 +20,7 @@ rawview: $(OBJS)
 
 clean:
 	@rm -f $(OBJS)
-	@rm -f picprog
+	@rm -f rawview
 $(DEPDIR)/%.d: ;
 .PRECIOUS: $(DEPDIR)/%.d
 

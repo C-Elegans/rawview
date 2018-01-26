@@ -62,7 +62,6 @@ void skip_space(char** str){
 }
 
 void read_variable_data(struct rawfile* rf){
-  printf("%x\n", *((char*)rf->buf));
   double* buf = (double*) rf->buf;
   for(size_t p=0;p<rf->points;p++){
     for(ssize_t v=0;v<rf->nvariables;v++){
@@ -133,7 +132,6 @@ struct rawfile* parse_rawfile(char* filename){
       }
     }
     else if(strcasecmp(key, "binary")==0){
-      printf("buf\n");
       rf->buf = buf+1;
     }
     if(!cont)
