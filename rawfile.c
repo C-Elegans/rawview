@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <assert.h>
 
 char prefix(char* pre, char* str){
   return strncmp(pre, str, strlen(pre)) == 0;
@@ -60,6 +61,17 @@ void skip_space(char** str){
   }
 }
 
+void read_variable_data(struct rawfile* rf){
+  printf("%x\n", *((char*)rf->buf));
+  double* buf = (double*) rf->buf;
+  for(size_t p=0;p<rf->points;p++){
+    for(ssize_t v=0;v<rf->nvariables;v++){
+      assert(!(rf->flags &FLAG_COMPLEX));
+      rf->variables[v].data[p]=*buf++;
+    }
+  }
+}
+
 
 struct rawfile* parse_rawfile(char* filename){
   struct rawfile* rf = malloc(sizeof(*rf));
@@ -102,6 +114,7 @@ struct rawfile* parse_rawfile(char* filename){
 	size_t index = strtol(buf,&buf,0);
 	skip_space(&buf);
 	rf->variables[index].name = buf;
+	rf->variables[index].data = calloc(rf->points,sizeof(double));
 	while(*buf && !isspace(*buf)){buf++;}
 	*buf++=0;
 	skip_space(&buf);
@@ -114,16 +127,18 @@ struct rawfile* parse_rawfile(char* filename){
 	if(prefix("current", buf)){
 	  rf->variables[index].type = VT_CURRENT;
 	}
+	
 	while(*buf && !isspace(*buf)){buf++;}
 	skip_space(&buf);
       }
     }
     else if(strcasecmp(key, "binary")==0){
       printf("buf\n");
-      rf->buf = buf;
+      rf->buf = buf+1;
     }
     if(!cont)
       break;
   }
+  read_variable_data(rf);
   return rf;
 }

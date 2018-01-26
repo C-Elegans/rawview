@@ -13,6 +13,7 @@ enum flags{
 struct variable {
   char* name;
   enum vartype type;
+  double* data;
 };
 struct rawfile {
   char* title;

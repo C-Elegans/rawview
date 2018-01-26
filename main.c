@@ -15,6 +15,9 @@ int main(int argc, char** argv){
   for(int i=0;i<rf->nvariables;i++){
     printf("var %d: %s %d\n", i, rf->variables[i].name, rf->variables[i].type);
   }
+  for(size_t i=0;i<rf->points;i++){
+    printf("%f\n", rf->variables[1].data[i]);
+  }
 
 
 }
